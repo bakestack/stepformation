@@ -1,0 +1,107 @@
+Parameters:
+  ResourcePrefix:
+    Description: Resource prefix to allow testing in 1 account
+    Type: String
+    Default: ''
+  OrchestratorName:
+    Description: Resource prefix to allow testing in 1 account
+    Type: String
+    Default: StepFormationOrchestrator
+Resources:
+  DeployBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ResourcePrefix}step-formation-deploy-bucket-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+  DeployBucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref DeployBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadForGetObject
+            Effect: Allow
+            Principal: !Ref AWS::AccountId
+            Action: s3:GetObject
+            Resource: !Sub "arn:aws:s3:::${ResourcePrefix}step-formation-deploy-bucket-${AWS::AccountId}-${AWS::Region}/*"
+
+  DeployUser:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ResourcePrefix}${OrchestratorName}Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - states.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+      - PolicyName: !Sub ${ResourcePrefix}${OrchestratorName}Policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:DescribeLogGroups
+            - logs:DescribeLogStreams
+            - logs:PutLogEvents
+            - logs:GetLogEvents
+            - logs:FilterLogEvents
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - lambda:invoke
+            - states:DeleteActivity
+            - states:DeleteStateMachine
+            - states:DescribeActivity
+            - states:DescribeExecution
+            - states:DescribeStateMachine
+            - states:DescribeStateMachineForExecution
+            - states:GetActivityTask
+            - states:GetExecutionHistory
+            - states:ListActivities
+            - states:ListExecutions
+            - states:ListStateMachines
+            - states:ListTagsForResource
+            - states:SendTaskFailure
+            - states:SendTaskHeartbeat
+            - states:SendTaskSuccess
+            - states:StartExecution
+            - states:StopExecution
+            - states:TagResource
+            - states:UntagResource
+            - states:UpdateStateMachine
+            Resource: "*"
+  
+  StepFunctionOrchestrator:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub ${ResourcePrefix}${OrchestratorName}StateMachine
+      RoleArn: !GetAtt DeployUser.Arn
+      DefinitionString: |
+        {
+            "Comment": "Hey",
+            "StartAt": "Hello",
+            "States": {
+                "Hello": {
+                    "Type": "Pass",
+                    "Result": "Hello",
+                    "Next": "World"
+                },
+                "World": {
+                    "Type": "Pass",
+                    "Result": "World",
+                    "End": true
+                }
+            }
+        }
