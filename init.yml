@@ -6,7 +6,7 @@ Parameters:
   OrchestratorName:
     Description: Resource prefix to allow testing in 1 account
     Type: String
-    Default: StepFormationOrchestratorStateMachine
+    Default: StepFormationOrchestrator
 Resources:
   DeployBucket:
     Type: AWS::S3::Bucket
@@ -33,6 +33,7 @@ Resources:
   DeployUser:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: !Sub ${ResourcePrefix}${OrchestratorName}Role
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -43,7 +44,7 @@ Resources:
           Action:
           - sts:AssumeRole
       Policies:
-      - PolicyName: CloudformationPolicy
+      - PolicyName: !Sub ${ResourcePrefix}${OrchestratorName}Policy
         PolicyDocument:
           Version: '2012-10-17'
           Statement:
@@ -85,7 +86,7 @@ Resources:
   StepFunctionOrchestrator:
     Type: AWS::StepFunctions::StateMachine
     Properties:
-      StateMachineName: !Ref OrchestratorName
+      StateMachineName: !Sub ${ResourcePrefix}${OrchestratorName}StateMachine
       RoleArn: !GetAtt DeployUser.Arn
       DefinitionString: |
         {
