@@ -1,0 +1,59 @@
+{
+    "Comment": "Invokes a cloudformation deploy",
+    "StartAt": "invokeDeploy",
+    "States": {
+        "invokeDeploy": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+                "FunctionName": "arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:cfn_deploy:$LATEST",
+                "Payload": {
+                    "Input": {
+                        "StackName": "${STACK_NAME}",
+                        "Parameters": {
+                            "Param1": "Value1"
+                        }
+                    }
+                }
+            },
+            "Next": "invokeStatus"
+        },
+        "invokeStatus": {
+            "ResultPath": "$.jobs[0].done",
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+                "FunctionName": "arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:cfn_status:$LATEST",
+                "Payload": {
+                    "Input": {
+                        "ResourceProperties": {
+                            "StackName": "${STACK_NAME}"
+                        }
+                    }
+                }
+            },
+            "Next": "wait60Seconds"
+        },
+        "wait_60_seconds": {
+            "Type": "Wait",
+            "Seconds": 60,
+            "Next": "AllDone"
+          },
+        "AllDone": {
+            "Type": "Choice",
+            "Choices": [
+              {
+                "Variable": "$.jobs[0].done",
+                "BooleanEquals": true,
+                "Next": "Complete"
+              }
+            ],
+            "Default": "invokeStatus"
+          },
+        "Complete": {
+            "Type": "Pass",
+            "Result": "Completed",
+            "End": true
+        }
+    }
+}
