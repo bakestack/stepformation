@@ -1,3 +1,5 @@
+AWSTemplateFormatVersion : '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
 Parameters:
   ResourcePrefix:
     Description: Resource prefix to allow testing in 1 account
@@ -7,6 +9,10 @@ Parameters:
     Description: Resource prefix to allow testing in 1 account
     Type: String
     Default: StepFormationOrchestrator
+  LogLevel:
+    Description: Log Level for lambda
+    Type: String
+    Default: INFO
 Resources:
   DeployBucket:
     Type: AWS::S3::Bucket
@@ -105,3 +111,49 @@ Resources:
                 }
             }
         }
+
+  ExecuteCfnLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${ResourcePrefix}ExecuteCfnLambda
+      Description: "Deployes cloudformation template"
+      Handler: cfn_execute.handler
+      Runtime: python3.6
+      MemorySize: 128
+      Timeout: 120
+      Role: !GetAtt ExecuteCfnLambdaRole.Arn
+      Environment:
+        Variables:
+          LOG_LEVEL: !Ref LogLevel
+      # CodeUri:
+      #   Bucket: !Ref DBConfigLambdaBucket
+      #   Key: !Ref CfnDeployLambdaKey
+
+  ExecuteCfnLambdaPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: 'Execute-Policy'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: "*"
+            Resource: "*"
+
+  ExecuteCfnLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub ${ResourcePrefix}ExecuteCfnLambdaRole
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: 'allowlambda'
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+              # TODO: add only lambda to assume role
+            Action: "sts:AssumeRole"
+      Path: /
+      ManagedPolicyArns:
+        - !Ref ExecuteCfnLambdaPolicy
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaENIManagementAccess
